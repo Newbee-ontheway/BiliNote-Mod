@@ -1,0 +1,32 @@
+# ---- Python ----
+__pycache__/
+*.py[cod]
+*.pyo
+*.egg-info/
+dist/
+build/
+*.egg
+
+# ---- Backend runtime data ----
+backend/.venv/
+backend/models/
+backend/data/
+backend/note_results/
+backend/logs/
+backend/uploads/
+backend/static/screenshots/
+
+# ---- Frontend ----
+BillNote_frontend/node_modules/
+BillNote_frontend/dist/
+
+# ---- OS ----
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ---- IDE ----
+.idea/
+.vscode/
+*.swp
+*.swo

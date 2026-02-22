@@ -1,5 +1,7 @@
 # === 前端构建阶段 ===
-FROM node:18-alpine AS builder
+# 使用 Debian-based node（不用 Alpine）：Tailwind v4 的 @tailwindcss/oxide 和
+# @tauri-apps/cli 的原生二进制依赖 glibc，Alpine 的 musl libc 不兼容
+FROM node:18 AS builder
 
 # 安装 pnpm
 RUN npm install -g pnpm
@@ -11,8 +13,7 @@ WORKDIR /app
 COPY ./BillNote_frontend /app
 
 # 安装依赖并构建
-# --ignore-scripts: 跳过 @tauri-apps/cli 的原生二进制安装（Alpine musl 不兼容 glibc）
-RUN pnpm install --ignore-scripts && pnpm run build
+RUN pnpm install && pnpm run build
 
 # --- 阶段2：使用 nginx 作为静态服务器 ---
 FROM nginx:1.25-alpine

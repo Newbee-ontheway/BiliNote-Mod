@@ -11,7 +11,8 @@ WORKDIR /app
 COPY ./BillNote_frontend /app
 
 # 安装依赖并构建
-RUN pnpm install && pnpm run build
+# --ignore-scripts: 跳过 @tauri-apps/cli 的原生二进制安装（Alpine musl 不兼容 glibc）
+RUN pnpm install --ignore-scripts && pnpm run build
 
 # --- 阶段2：使用 nginx 作为静态服务器 ---
 FROM nginx:1.25-alpine

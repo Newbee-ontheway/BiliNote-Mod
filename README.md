@@ -9,53 +9,68 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-v1.0.0-blue" />
+  <img src="https://img.shields.io/badge/version-v1.1.1-blue" />
   <img src="https://img.shields.io/badge/license-MIT-green" />
+  <img src="https://img.shields.io/badge/docker-available-brightgreen" />
   <img src="https://img.shields.io/badge/based%20on-BiliNote%20v1.8.1-orange" />
 </p>
 
 ---
 
-## ✨ 魔改版新增功能
+## ✨ 功能特性 (魔改版新增功能加粗)
 
 | # | 功能 | 说明 |
 |---|------|------|
-| 1 | 🌐 **网页文本总结** | 直接粘贴文本即可生成结构化笔记，不限于视频 |
-| 2 | ⚡ **优化笔记生成速度** | GPU 加速自动检测，正确适配 GTX/RTX 全系显卡（int8_float32） |
-| 3 | 📤 **更多导出格式** | 支持导出为 PDF、Word 文档 |
-| 4 | 🎬 **本地视频总结** | 支持直接上传本地视频文件进行转录和笔记生成 |
-| 5 | 🛡️ **下载配置防呆** | 智能检测下载地址和下载器配置，避免常见错误 |
-| 6 | 🔗 **YouTube 代理提示** | 下载 YouTube 视频失败时，给出清晰的代理配置指引（3 步搞定） |
-| 7 | 🎨 **UI 优化** | 界面微调，更清爽好用 |
+| 1 | 多平台支持 | 支持 Bilibili、YouTube、本地视频、抖音等多个平台 |
+| 2 | 笔记格式与风格选择 | 支持返回多种笔记格式与风格，个性化定制且结构化 (Markdown) |
+| 3 | 多模态视频理解 | 结合视觉和音频内容，全面理解视频 |
+| 4 | 自定义大模型配置 | 支持自行配置 GPT 等大语言模型 |
+| 5 | 本地音频转写 | 支持 Fast-Whisper 等本地模型音频转写 |
+| 6 | 智能截图与内容跳转 | 可插入自动截取的关键画面，并支持关联原视频的精确时间点跳转 |
+| 7 | **🌐 网页文本总结** | **直接粘贴文本即可生成结构化笔记，不再仅限于视频** |
+| 8 | **⚡ 优化笔记生成速度** | **GPU 加速自动检测，正确适配 GTX/RTX 全系显卡（int8_float32）** |
+| 9 | **📤 更多导出格式** | **支持导出为 PDF、Word 文档** |
+| 10 | **🎬 本地视频总结** | **支持直接上传本地视频文件进行转录和笔记生成** |
+| 11 | **🛡️ 下载配置防呆** | **智能检测下载地址和下载器配置，避免常见错误** |
+| 12 | **🔗 YouTube 代理提示** | **下载 YouTube 视频失败时，给出清晰的代理配置指引（3 步搞定）** |
+| 13 | **🎨 UI 深度优化** | **前端界面微调，更符合 AI 生产力工具的直觉操作** |
 
 ## 🚀 快速开始
 
-### 1. 克隆仓库
+### 3. 使用 Docker 部署 (推荐)
 
-```bash
-git clone https://github.com/Newbee-ontheway/BiliNote-Mod-Bilinote-.git
-cd BiliNote-Mod-Bilinote-
+我们已提供预构建镜像，只需一个 `docker-compose.yml` 即可启动：
+
+```yaml
+services:
+  backend:
+    image: newbeeontheway/bilinote-mod-backend:latest
+    env_file: .env
+    volumes:
+      - ./backend_data:/app/data
+    restart: always
+
+  frontend:
+    image: newbeeontheway/bilinote-mod-frontend:latest
+    restart: always
+
+  nginx:
+    image: nginx:1.25-alpine
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf
+    depends_on:
+      - backend
+      - frontend
 ```
 
-### 2. 启动后端
-
+运行：
 ```bash
-cd backend
-python -m venv .venv
-.venv\Scripts\activate        # Windows
-pip install -r requirements.txt
-python main.py
+docker compose up -d
 ```
 
-### 3. 启动前端
-
-```bash
-cd BillNote_frontend
-pnpm install
-pnpm dev
-```
-
-### 4. 一键启动（Windows）
+### 4. 一键启动（Windows 本地开发）
 
 直接双击根目录下的 `start.bat` 即可同时启动前后端。
 

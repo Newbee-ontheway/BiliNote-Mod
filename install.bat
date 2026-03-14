@@ -1,85 +1,83 @@
 @echo off
-chcp 65001 >nul
 echo ================================================
-echo   BiliNote - 一键安装脚本 (首次使用请运行此脚本)
+echo   BiliNote - One-Click Setup Script
 echo ================================================
 echo.
 
-:: ─── 检查 Python ───
-echo [0/4] 检查 Python...
+:: --- Check Python ---
+echo [0/4] Checking Python...
 python --version >nul 2>&1
 if %errorlevel% neq 0 (
-    echo [错误] 未检测到 Python！请先安装 Python 3.10+ 
-    echo        下载地址: https://www.python.org/downloads/
-    echo        安装时请勾选 "Add Python to PATH"
+    echo [ERROR] Python not found! Please install Python 3.10+
+    echo         Download: https://www.python.org/downloads/
+    echo         Make sure to check "Add Python to PATH" during install.
     pause
     exit /b 1
 )
 python --version
 echo.
 
-:: ─── 检查 Node.js ───
-echo [0/4] 检查 Node.js...
+:: --- Check Node.js ---
+echo [0/4] Checking Node.js...
 node --version >nul 2>&1
 if %errorlevel% neq 0 (
-    echo [错误] 未检测到 Node.js！请先安装 Node.js 18+
-    echo        下载地址: https://nodejs.org/
+    echo [ERROR] Node.js not found! Please install Node.js 18+
+    echo         Download: https://nodejs.org/
     pause
     exit /b 1
 )
 node --version
 echo.
 
-:: ─── 后端安装 ───
-echo [1/4] 创建 Python 虚拟环境...
+:: --- Backend Setup ---
+echo [1/4] Creating Python virtual environment...
 cd /d "%~dp0backend"
 if not exist ".venv" (
     python -m venv .venv
-    echo       虚拟环境已创建
+    echo       Virtual environment created.
 ) else (
-    echo       虚拟环境已存在，跳过
+    echo       Virtual environment already exists, skipping.
 )
 echo.
 
-echo [2/4] 安装后端依赖 (首次约需 5-10 分钟，取决于网速)...
-.venv\Scripts\pip.exe install -r requirements.txt
+echo [2/4] Installing backend dependencies...
+"%~dp0backend\.venv\Scripts\python.exe" -m pip install -r "%~dp0backend\requirements.txt"
 if %errorlevel% neq 0 (
-    echo [错误] 后端依赖安装失败！请检查网络连接后重试
+    echo [ERROR] Backend installation failed! Check network connection.
     pause
     exit /b 1
 )
 echo.
 
-:: ─── 配置 .env ───
-echo [3/4] 检查后端配置...
+:: --- Configure .env ---
+echo [3/4] Checking backend configuration...
 if not exist ".env" (
     copy .env.example .env >nul
-    echo       已从 .env.example 创建 .env（默认配置）
-    echo       如需自定义 API Key 等，请编辑 backend\.env
+    echo       Created .env from .env.example (default config).
 ) else (
-    echo       .env 已存在，跳过
+    echo       .env already exists, skipping.
 )
 echo.
 
-:: ─── 前端安装 ───
-echo [4/4] 安装前端依赖...
+:: --- Frontend Setup ---
+echo [4/4] Installing frontend dependencies...
 cd /d "%~dp0BillNote_frontend"
 if not exist "node_modules\vite\bin\vite.js" (
-    echo       正在通过淘宝镜像源安装...
+    echo       Using taobao mirror for faster download...
     call npm install --registry=https://registry.npmmirror.com
     if %errorlevel% neq 0 (
-        echo [错误] 前端依赖安装失败！网络出错或被中断。
+        echo [ERROR] Frontend installation failed! Network error or interrupted.
         pause
         exit /b 1
     )
 ) else (
-    echo       node_modules 下 vite 已完成安装，跳过
+    echo       Frontend vite dependencies already installed, skipping.
 )
 echo.
 
-:: ─── 完成 ───
+:: --- Done ---
 echo ================================================
-echo   安装完成！
-echo   运行 start.bat 启动 BiliNote
+echo   Installation Complete!
+echo   You can now run start.bat to launch BiliNote.
 echo ================================================
 pause

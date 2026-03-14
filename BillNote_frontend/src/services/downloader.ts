@@ -8,6 +8,14 @@ export const updateDownloaderCookie = async (data: { cookie: string; platform: a
   return await request.post('/update_downloader_cookie', data)
 }
 
+export const getCookieBrowser = async (platform: string) => {
+  return await request.get('/get_cookie_browser/' + platform)
+}
+
+export const updateCookieBrowser = async (data: { platform: string; browser: string | null }) => {
+  return await request.post('/update_cookie_browser', data)
+}
+
 export const getOutputDir = async () => {
   return await request.get('/get_output_dir')
 }

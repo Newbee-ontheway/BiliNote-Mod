@@ -23,6 +23,7 @@ import { noteStyles } from '@/constant/note.ts'
 import { MarkdownHeader } from '@/pages/HomePage/components/MarkdownHeader.tsx'
 import TranscriptViewer from '@/pages/HomePage/components/transcriptViewer.tsx'
 import MarkmapEditor from '@/pages/HomePage/components/MarkmapComponent.tsx'
+import ChatPanel from '@/pages/HomePage/components/ChatPanel.tsx'
 
 interface VersionNote {
   ver_id: string
@@ -45,6 +46,15 @@ const steps = [
   { label: '保存完成', key: 'SUCCESS' },
 ]
 
+const formatMath = (text: string) => {
+  if (!text) return text
+  // 替换 \[ ... \] 为 $$ ... $$ (多行/单行)
+  text = text.replace(/\\\[([\s\S]*?)\\\]/g, '$$$$$1$$$$')
+  // 替换 \( ... \) 为 $ ... $ (行内)
+  text = text.replace(/\\\(([\s\S]*?)\\\)/g, '$$$1$$')
+  return text
+}
+
 const MarkdownViewer: FC<MarkdownViewerProps> = ({ status }) => {
   const [copied, setCopied] = useState(false)
   const [currentVerId, setCurrentVerId] = useState<string>('')
@@ -61,6 +71,7 @@ const MarkdownViewer: FC<MarkdownViewerProps> = ({ status }) => {
   const isMultiVersion = Array.isArray(currentTask?.markdown)
   const [showTranscribe, setShowTranscribe] = useState(false)
   const [viewMode, setViewMode] = useState<'map' | 'preview'>('preview')
+  const [showChat, setShowChat] = useState(false)
   const svgRef = useRef<SVGSVGElement>(null)
   // 多版本内容处理
   useEffect(() => {
@@ -95,7 +106,7 @@ const MarkdownViewer: FC<MarkdownViewerProps> = ({ status }) => {
   }, [currentVerId, currentTask?.id])
   const handleCopy = async () => {
     try {
-      await navigator.clipboard.writeText(selectedContent)
+      await navigator.clipboard.writeText(formatMath(selectedContent))
       setCopied(true)
       toast.success('已复制到剪贴板')
       setTimeout(() => setCopied(false), 2000)
@@ -138,7 +149,7 @@ const MarkdownViewer: FC<MarkdownViewerProps> = ({ status }) => {
     try {
       // 优先通过后端保存到用户指定目录
       const { exportFile } = await import('@/services/downloader')
-      const res = await exportFile({ content: selectedContent, filename: `${name}.${ext}`, format: fmt })
+      const res = await exportFile({ content: formatMath(selectedContent), filename: `${name}.${ext}`, format: fmt })
       const savedPath = res?.path
       if (savedPath) {
         toast.success(`已导出到: ${savedPath}`)
@@ -156,7 +167,7 @@ const MarkdownViewer: FC<MarkdownViewerProps> = ({ status }) => {
       }
     }
     // 降级：浏览器下载（仅 md 格式）
-    const blob = new Blob([selectedContent], { type: 'text/markdown;charset=utf-8' })
+    const blob = new Blob([formatMath(selectedContent)], { type: 'text/markdown;charset=utf-8' })
     const link = document.createElement('a')
     link.href = URL.createObjectURL(blob)
     link.download = `${name}.md`
@@ -217,6 +228,8 @@ const MarkdownViewer: FC<MarkdownViewerProps> = ({ status }) => {
         createAt={createTime}
         showTranscribe={showTranscribe}
         setShowTranscribe={setShowTranscribe}
+        showChat={showChat}
+        setShowChat={setShowChat}
         viewMode={viewMode}
         setViewMode={setViewMode}
       />
@@ -225,7 +238,7 @@ const MarkdownViewer: FC<MarkdownViewerProps> = ({ status }) => {
         <div className="flex w-full flex-1 overflow-hidden bg-white">
           <div className={'w-full'}>
             <MarkmapEditor
-              value={selectedContent}
+              value={formatMath(selectedContent)}
               onChange={() => { }}
               height="100%" // 根据需求可以设定百分比或固定高度
               title={currentTask?.audioMeta?.title || '思维导图'}
@@ -483,7 +496,7 @@ const MarkdownViewer: FC<MarkdownViewerProps> = ({ status }) => {
                       ),
                     }}
                   >
-                    {selectedContent}
+                    {formatMath(selectedContent)}
                   </ReactMarkdown>
                 </div>
               </ScrollArea>
@@ -505,6 +518,14 @@ const MarkdownViewer: FC<MarkdownViewerProps> = ({ status }) => {
             </div>
           )}
         </div>
+      )}
+
+      {/* Floating chat panel — rendered outside note content flow */}
+      {showChat && currentTask?.id && (
+        <ChatPanel
+          taskId={currentTask.id}
+          onClose={() => setShowChat(false)}
+        />
       )}
     </div>
   )

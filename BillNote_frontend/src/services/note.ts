@@ -103,20 +103,30 @@ export const generateNoteFromText = async (data: {
   }
 }
 
-// ==================== Phase 4: 笔记对话 ====================
+// ==================== Phase 4: 笔记对话 (SSE Streaming) ====================
 
-export const chatWithNote = async (data: {
+const API_BASE = import.meta.env.VITE_API_BASE_URL || '/api'
+
+/**
+ * SSE streaming chat with note.
+ * Returns a ReadableStream<string> of content chunks.
+ */
+export const chatWithNoteSSE = async (data: {
   task_id: string
   message: string
   model_name: string
   provider_id: string
   history?: Array<{ role: string; content: string }>
-}) => {
-  try {
-    const response = await request.post('/chat_with_note', data)
-    return response
-  } catch (e: any) {
-    console.error('❌ 笔记对话请求出错', e)
-    throw e
+}): Promise<Response> => {
+  const response = await fetch(`${API_BASE}/chat_with_note`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  })
+
+  if (!response.ok) {
+    throw new Error(`Chat request failed: ${response.status}`)
   }
+
+  return response
 }

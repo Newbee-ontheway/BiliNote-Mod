@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { Copy, Download, BrainCircuit, ChevronDown } from 'lucide-react'
+import { Copy, Download, BrainCircuit, ChevronDown, MessageCircle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { Badge } from '@/components/ui/badge'
@@ -15,6 +15,8 @@ interface NoteHeaderProps {
   createAt?: string | Date
   showTranscribe: boolean
   setShowTranscribe: (show: boolean) => void
+  showChat: boolean
+  setShowChat: (show: boolean) => void
   viewMode: string
   setViewMode: (mode: string) => void
 }
@@ -34,6 +36,8 @@ export function MarkdownHeader({
   createAt,
   showTranscribe,
   setShowTranscribe,
+  showChat,
+  setShowChat,
   viewMode,
   setViewMode,
 }: NoteHeaderProps) {
@@ -177,6 +181,23 @@ export function MarkdownHeader({
               </Button>
             </TooltipTrigger>
             <TooltipContent>原文参照</TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                onClick={() => setShowChat(!showChat)}
+                variant={showChat ? 'default' : 'ghost'}
+                size="sm"
+                className="h-8 px-2"
+              >
+                <MessageCircle className="mr-1.5 h-4 w-4" />
+                <span className="text-sm">对话</span>
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>基于笔记内容提问</TooltipContent>
           </Tooltip>
         </TooltipProvider>
       </div>

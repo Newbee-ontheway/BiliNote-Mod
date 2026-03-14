@@ -29,9 +29,24 @@ def get_cookie(platform: str):
 @router.post("/update_downloader_cookie")
 def update_cookie(data: CookieUpdateRequest):
     cookie_manager.set(data.platform, data.cookie)
-    return R.success(
+    return R.success()
 
-    )
+
+class BrowserUpdateRequest(BaseModel):
+    platform: str
+    browser: Optional[str] = None  # 'chrome', 'edge', 'firefox', or None to clear
+
+
+@router.get("/get_cookie_browser/{platform}")
+def get_cookie_browser(platform: str):
+    browser = cookie_manager.get_browser(platform)
+    return R.success(data={"platform": platform, "browser": browser})
+
+
+@router.post("/update_cookie_browser")
+def update_cookie_browser(data: BrowserUpdateRequest):
+    cookie_manager.set_browser(data.platform, data.browser)
+    return R.success(msg=f"浏览器设置为: {data.browser or '关闭'}")
 
 @router.get("/sys_health")
 async def sys_health():

@@ -171,8 +171,16 @@ def get_task_status(task_id: str):
 
     # 优先读状态文件
     if os.path.exists(status_path):
-        with open(status_path, "r", encoding="utf-8") as f:
-            status_content = json.load(f)
+        try:
+            with open(status_path, "r", encoding="utf-8") as f:
+                status_content = json.load(f)
+        except (json.JSONDecodeError, ValueError):
+            # Race condition: file is being written, read empty/partial content
+            return R.success({
+                "status": TaskStatus.PENDING.value,
+                "message": "任务处理中",
+                "task_id": task_id
+            })
 
         status = status_content.get("status")
         message = status_content.get("message", "")
@@ -394,7 +402,10 @@ def generate_note_from_text(data: TextNoteRequest, background_tasks: BackgroundT
         raise HTTPException(status_code=500, detail=str(e))
 
 
-# ==================== Phase 4: 笔记对话 ====================
+# ==================== Phase 4: 笔记对话 (SSE Streaming + BM25) ====================
+
+from starlette.responses import StreamingResponse as StarletteStreamingResponse
+from app.utils.search_segments import search_segments, format_segments_for_prompt
 
 class ChatRequest(BaseModel):
     """基于已有笔记进行对话"""
@@ -405,59 +416,115 @@ class ChatRequest(BaseModel):
     history: Optional[list] = []  # [{"role": "user", "content": "..."}, ...]
 
 
+def _load_note_content(task_id: str) -> str:
+    """Load note markdown content."""
+    out_dir = str(get_note_output_dir())
+    md_path = os.path.join(out_dir, f"{task_id}_markdown.md")
+    result_path = os.path.join(out_dir, f"{task_id}.json")
+
+    if os.path.exists(md_path):
+        with open(md_path, "r", encoding="utf-8") as f:
+            return f.read()
+    elif os.path.exists(result_path):
+        with open(result_path, "r", encoding="utf-8") as f:
+            result = json.load(f)
+            return result.get("markdown", "")
+    return ""
+
+
+def _load_transcript_segments(task_id: str):
+    """Load transcript segments for BM25 search."""
+    out_dir = str(get_note_output_dir())
+    transcript_path = os.path.join(out_dir, f"{task_id}_transcript.json")
+
+    if not os.path.exists(transcript_path):
+        return None
+
+    try:
+        with open(transcript_path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        segments = data.get("segments", [])
+        if segments:
+            from app.models.transcriber_model import TranscriptSegment
+            return [TranscriptSegment(**seg) for seg in segments]
+    except Exception as e:
+        logger.warning(f"加载转写缓存失败: {e}")
+    return None
+
+
+def _build_chat_context(task_id: str, user_message: str) -> str:
+    """Build context for chat: always include full note, add BM25 segments for long transcripts."""
+    note_content = _load_note_content(task_id)
+
+    # Always include the full note (it's already a GPT summary, not raw transcript)
+    context = f"## 笔记全文：\n{note_content}"
+
+    # For longer notes, also search transcript segments for extra detail
+    segments = _load_transcript_segments(task_id)
+    if segments and len(segments) > 5:
+        relevant = search_segments(user_message, segments, top_k=15, max_context_chars=5000)
+        if relevant:
+            segment_text = format_segments_for_prompt(relevant)
+            logger.info(f"BM25 检索: {len(segments)} 段中选出 {len(relevant)} 段相关内容")
+            context += f"\n\n## 相关原文片段（带时间戳，可引用）：\n{segment_text}"
+
+    return context
+
+
 @router.post("/chat_with_note")
 def chat_with_note(data: ChatRequest):
-    """基于已有笔记内容进行对话"""
-    try:
-        # 1. 读取笔记
-        out_dir = str(get_note_output_dir())
-        result_path = os.path.join(out_dir, f"{data.task_id}.json")
-        md_path = os.path.join(out_dir, f"{data.task_id}_markdown.md")
+    """基于已有笔记内容进行 SSE 流式对话"""
+    note_content = _load_note_content(data.task_id)
+    if not note_content:
+        raise HTTPException(status_code=404, detail="未找到对应笔记内容")
 
-        note_content = ""
-        if os.path.exists(md_path):
-            with open(md_path, "r", encoding="utf-8") as f:
-                note_content = f.read()
-        elif os.path.exists(result_path):
-            with open(result_path, "r", encoding="utf-8") as f:
-                result = json.load(f)
-                note_content = result.get("markdown", "")
+    # Build context with BM25 search for long content
+    context = _build_chat_context(data.task_id, data.message)
 
-        if not note_content:
-            raise HTTPException(status_code=404, detail="未找到对应笔记内容")
+    # Create GPT instance
+    gpt = NoteGenerator()._get_gpt(data.model_name, data.provider_id)
 
-        # 2. 创建 GPT 实例
-        gpt = NoteGenerator()._get_gpt(data.model_name, data.provider_id)
+    system_prompt = f"""你是一个智能笔记助手。以下是用户生成的笔记相关内容，请基于这些内容回答用户的问题。
 
-        # 3. 构建对话
-        system_prompt = f"""你是一个智能笔记助手。以下是用户生成的笔记内容，请基于这些内容回答用户的问题。
-
-## 笔记内容：
-{note_content}
+{context}
 
 ## 要求：
-- 回答必须基于笔记内容，不要编造信息
-- 如果笔记中没有相关信息，请如实告知
+- 回答必须基于提供的内容，不要编造信息
+- 如果内容中有时间戳，引用时请标注时间
+- 如果内容中没有相关信息，请如实告知
 - 使用 Markdown 格式输出
 - 回答要简洁准确"""
 
-        messages = [{"role": "system", "content": system_prompt}]
-        if data.history:
-            for msg in data.history:
-                messages.append({"role": msg.get("role", "user"), "content": msg.get("content", "")})
-        messages.append({"role": "user", "content": data.message})
+    messages = [{"role": "system", "content": system_prompt}]
+    if data.history:
+        for msg in data.history:
+            messages.append({"role": msg.get("role", "user"), "content": msg.get("content", "")})
+    messages.append({"role": "user", "content": data.message})
 
-        # 4. 调用 LLM
-        response = gpt.client.chat.completions.create(
-            model=gpt.model,
-            messages=messages,
-            temperature=0.5,
-        )
-        reply = response.choices[0].message.content.strip()
-        return R.success({"reply": reply})
+    def generate():
+        try:
+            stream = gpt.client.chat.completions.create(
+                model=gpt.model,
+                messages=messages,
+                temperature=0.5,
+                stream=True,
+            )
+            for chunk in stream:
+                if chunk.choices and chunk.choices[0].delta.content:
+                    content = chunk.choices[0].delta.content
+                    yield f"data: {json.dumps({'content': content}, ensure_ascii=False)}\n\n"
+            yield "data: [DONE]\n\n"
+        except Exception as e:
+            logger.error(f"SSE 流式对话失败: {e}", exc_info=True)
+            yield f"data: {json.dumps({'error': str(e)}, ensure_ascii=False)}\n\n"
+            yield "data: [DONE]\n\n"
 
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"笔记对话失败: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+    return StarletteStreamingResponse(
+        generate(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )

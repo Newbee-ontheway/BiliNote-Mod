@@ -27,7 +27,23 @@ class CookieConfigManager:
 
     def set(self, platform: str, cookie: str):
         data = self._read()
-        data[platform] = {"cookie": cookie}
+        if platform not in data:
+            data[platform] = {}
+        data[platform]["cookie"] = cookie
+        self._write(data)
+
+    def get_browser(self, platform: str) -> Optional[str]:
+        data = self._read()
+        return data.get(platform, {}).get("browser")
+
+    def set_browser(self, platform: str, browser: Optional[str]):
+        data = self._read()
+        if platform not in data:
+            data[platform] = {}
+        if browser:
+            data[platform]["browser"] = browser
+        elif "browser" in data.get(platform, {}):
+            del data[platform]["browser"]
         self._write(data)
 
     def delete(self, platform: str):

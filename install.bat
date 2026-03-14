@@ -64,15 +64,16 @@ echo.
 :: ─── 前端安装 ───
 echo [4/4] 安装前端依赖...
 cd /d "%~dp0BillNote_frontend"
-if not exist "node_modules" (
-    call npm install
+if not exist "node_modules\vite\bin\vite.js" (
+    echo       正在通过淘宝镜像源安装...
+    call npm install --registry=https://registry.npmmirror.com
     if %errorlevel% neq 0 (
-        echo [错误] 前端依赖安装失败！
+        echo [错误] 前端依赖安装失败！网络出错或被中断。
         pause
         exit /b 1
     )
 ) else (
-    echo       node_modules 已存在，跳过
+    echo       node_modules 下 vite 已完成安装，跳过
 )
 echo.
 
